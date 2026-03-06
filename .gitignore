@@ -1,0 +1,54 @@
+# ========================
+# Python
+# ========================
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ========================
+# Database
+# ========================
+*.db
+*.sqlite3
+
+# ========================
+# Environment variables
+# ========================
+.env
+.env.*
+
+# ========================
+# Node / Frontend
+# ========================
+node_modules/
+frontend/dist/
+frontend/build/
+
+# ========================
+# IDE / Editor
+# ========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ========================
+# Docker
+# ========================
+docker-compose.override.yml
+
+# ========================
+# Logs & temp
+# ========================
+*.log
+tmp/
+.cache/
