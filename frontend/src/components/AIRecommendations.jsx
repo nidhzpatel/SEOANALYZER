@@ -24,7 +24,11 @@ function AIRecommendations({ report }) {
         ai_score = 50,
     } = report
 
-    if (!ai_summary && ai_recommendations.length === 0) return null
+    const recsArray = Array.isArray(ai_recommendations)
+        ? ai_recommendations
+        : (ai_recommendations?.recommendations || [])
+
+    if (!ai_summary && recsArray.length === 0) return null
 
     const toggleExpand = (idx) => {
         setExpandedIdx(expandedIdx === idx ? null : idx)
@@ -127,11 +131,11 @@ function AIRecommendations({ report }) {
             )}
 
             {/* Recommendations */}
-            {ai_recommendations.length > 0 && (
+            {recsArray.length > 0 && (
                 <div className="ai-recs-card glass-card">
                     <h3>🎯 Actionable Recommendations</h3>
                     <div className="recs-list">
-                        {ai_recommendations.map((rec, idx) => (
+                        {recsArray.map((rec, idx) => (
                             <div
                                 key={idx}
                                 className={`rec-item ${expandedIdx === idx ? 'expanded' : ''}`}

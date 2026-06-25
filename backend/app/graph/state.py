@@ -40,7 +40,7 @@ class SEOState(TypedDict, total=False):
     all_issues: list  # consolidated issues from all nodes
 
     # AI Recommendations output
-    ai_recommendations: list  # LLM-generated actionable recommendations
+    ai_recommendations: dict  # {recommendations: [...], strategy: {...}}
     ai_suggested_title: str  # LLM-suggested improved title
     ai_suggested_meta: str  # LLM-suggested improved meta description
     ai_summary: str  # LLM-generated overall SEO summary

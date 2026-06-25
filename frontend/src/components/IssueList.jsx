@@ -39,7 +39,7 @@ export default function IssueList({ issues }) {
     return (
         <div className="issue-list-wrapper">
             <div className="issue-list-header">
-                <h2>Issues Found</h2>
+                <h2>Priority Fix Roadmap</h2>
                 <div className="issue-filters">
                     {['all', 'critical', 'warning', 'info'].map((f) => (
                         <button

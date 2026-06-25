@@ -57,6 +57,26 @@ def check_pagespeed(state: SEOState) -> dict:
         perf_score = perf_category.get("score", 0)
         perf_score_100 = round((perf_score or 0) * 100)
 
+        # Extract Field Data (Crux) for INP
+        field_data = data.get("loadingExperience", {}).get("metrics", {})
+        inp_data = field_data.get("INTERACTION_TO_NEXT_PAINT_MS", {})
+        inp_value = inp_data.get("percentile", "N/A")
+        inp_category = inp_data.get("category", "N/A")
+
+        # Extract optimization suggestions
+        suggestions = []
+        for audit_id, audit in audits.items():
+            if audit.get("score") is not None and audit.get("score") < 1.0:
+                if audit.get("details", {}).get("type") == "opportunity":
+                    savings = audit.get("details", {}).get("overallSavingsMs", 0)
+                    suggestions.append({
+                        "id": audit_id,
+                        "title": audit.get("title"),
+                        "description": audit.get("description"),
+                        "savings_ms": savings
+                    })
+        suggestions = sorted(suggestions, key=lambda x: x.get("savings_ms", 0), reverse=True)
+
         # Core Web Vitals
         metrics = {
             "performance_score": perf_score_100,
@@ -66,6 +86,8 @@ def check_pagespeed(state: SEOState) -> dict:
             "cls": _extract_metric(audits, "cumulative-layout-shift"),
             "speed_index": _extract_metric(audits, "speed-index"),
             "tti": _extract_metric(audits, "interactive"),
+            "inp": {"value": inp_value, "category": inp_category},
+            "optimization_suggestions": suggestions[:5]
         }
 
         # Generate performance-related issues
@@ -151,6 +173,8 @@ def _fallback_result(reason: str) -> dict:
             "cls": {"score": None, "displayValue": "N/A", "numericValue": 0},
             "speed_index": {"score": None, "displayValue": "N/A", "numericValue": 0},
             "tti": {"score": None, "displayValue": "N/A", "numericValue": 0},
+            "inp": {"value": "N/A", "category": "N/A"},
+            "optimization_suggestions": [],
             "error": reason,
         },
         "pagespeed_issues": [

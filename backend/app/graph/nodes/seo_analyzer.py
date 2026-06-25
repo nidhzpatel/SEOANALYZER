@@ -241,10 +241,38 @@ def analyze_seo(state: SEOState) -> dict:
 
     # ── Structured Data ──────────────────────────────────
     has_sd = crawl_data.get("has_structured_data", False)
-    signals["structured_data"] = {"status": "pass" if has_sd else "info"}
+    schema_types = crawl_data.get("schema_types", [])
+    signals["structured_data"] = {"status": "pass" if has_sd else "info", "types": schema_types}
     if not has_sd:
         issues.append(_issue("technical", "info", "No Structured Data",
                              "No JSON-LD structured data found. Adding structured data can enhance search appearance."))
+    elif schema_types:
+        signals["structured_data"]["value"] = ", ".join(schema_types)
+
+    # ── Technical Files (robots.txt & sitemap.xml) ───────
+    has_robots_txt = crawl_data.get("has_robots_txt", False)
+    if has_robots_txt:
+        signals["robots_txt"] = {"status": "pass"}
+    else:
+        signals["robots_txt"] = {"status": "warning"}
+        issues.append(_issue("technical", "warning", "Missing robots.txt",
+                             "No robots.txt file found. This file is critical for guiding search engine crawlers."))
+
+    has_sitemap_xml = crawl_data.get("has_sitemap_xml", False)
+    if has_sitemap_xml:
+        signals["sitemap_xml"] = {"status": "pass"}
+    else:
+        signals["sitemap_xml"] = {"status": "warning"}
+        issues.append(_issue("technical", "warning", "Missing sitemap.xml",
+                             "No XML sitemap found. A sitemap helps search engines discover all pages on your site."))
+
+    # ── Keyword Density ──────────────────────────────────
+    keyword_density = crawl_data.get("keyword_density", [])
+    signals["keyword_density"] = {"status": "pass" if keyword_density else "info", "top_keywords": keyword_density[:5]}
+    if keyword_density and keyword_density[0].get("density", 0) > 5.0:
+        top_kw = keyword_density[0]
+        issues.append(_issue("onpage", "warning", "High Keyword Density",
+                             f"The keyword '{top_kw['word']}' has a density of {top_kw['density']}%, which might be considered keyword stuffing. Recommend keeping it under 3-5%."))
 
     # ── Favicon ──────────────────────────────────────────
     has_favicon = crawl_data.get("has_favicon", False)

@@ -1,13 +1,16 @@
 """AI Recommendations node — uses Ollama LLM to generate SEO improvement suggestions."""
 
 import logging
+import os
 
 from app.graph.state import SEOState
 from app.llm import invoke_llm_json, invoke_llm
 
 logger = logging.getLogger(__name__)
 
-RECOMMENDATIONS_SYSTEM_PROMPT = """You are an expert SEO consultant. Based on the SEO analysis results, provide actionable recommendations to improve the website's SEO.
+SKIP_AI = os.getenv("SKIP_AI", "false").lower() == "true"
+
+RECOMMENDATIONS_SYSTEM_PROMPT = """You are an expert SEO consultant. Based on the SEO analysis results, provide actionable recommendations and a comprehensive SEO strategy.
 
 You MUST respond with valid JSON only, no other text. Use this exact format:
 {
@@ -19,6 +22,11 @@ You MUST respond with valid JSON only, no other text. Use this exact format:
             "impact": "Expected impact on SEO score"
         }
     ],
+    "ai_seo_strategy": {
+        "target_keywords": ["keyword 1", "keyword 2", "keyword 3"],
+        "content_suggestions": ["suggestion 1", "suggestion 2"],
+        "backlink_strategy": ["strategy 1", "strategy 2"]
+    },
     "suggested_title": "An improved SEO-optimized title tag (50-60 characters)",
     "suggested_meta_description": "An improved SEO-optimized meta description (150-160 characters)",
     "overall_summary": "A 2-3 sentence summary of the website's SEO health and key areas for improvement"
@@ -55,6 +63,29 @@ def ai_recommend(state: SEOState) -> dict:
 
     logger.info(f"Generating AI recommendations for: {url}")
 
+    if SKIP_AI:
+        logger.info("SKIP_AI is set; returning fallback recommendations")
+        return {
+            "ai_recommendations": {
+                "recommendations": [
+                    {
+                        "priority": "high",
+                        "title": "Review AI recommendations later",
+                        "description": "AI generation is currently skipped for fast testing. Re-run with SKIP_AI=false for LLM-powered suggestions.",
+                        "impact": "N/A",
+                    }
+                ],
+                "strategy": {
+                    "target_keywords": [],
+                    "content_suggestions": ["Enable AI for detailed content strategy."],
+                    "backlink_strategy": ["Enable AI for backlink suggestions."],
+                },
+            },
+            "ai_suggested_title": "",
+            "ai_suggested_meta": "",
+            "ai_summary": "AI generation skipped (SKIP_AI=true).",
+        }
+
     # Build a summary of issues for the LLM
     issues_summary = []
     for issue in all_issues[:15]:  # Cap at 15 issues
@@ -87,6 +118,7 @@ Detected Issues:
         result = invoke_llm_json(RECOMMENDATIONS_SYSTEM_PROMPT, user_prompt)
 
         recommendations = result.get("recommendations", [])
+        ai_seo_strategy = result.get("ai_seo_strategy", {})
         suggested_title = result.get("suggested_title", "")
         suggested_meta = result.get("suggested_meta_description", "")
         summary = result.get("overall_summary", "")
@@ -100,7 +132,10 @@ Detected Issues:
         logger.info(f"AI recommendations generated: {len(recommendations)} items")
 
         return {
-            "ai_recommendations": recommendations,
+            "ai_recommendations": {
+                "recommendations": recommendations,
+                "strategy": ai_seo_strategy
+            },
             "ai_suggested_title": suggested_title,
             "ai_suggested_meta": suggested_meta,
             "ai_summary": summary,
@@ -109,7 +144,10 @@ Detected Issues:
     except Exception as e:
         logger.error(f"AI recommendations failed: {e}")
         return {
-            "ai_recommendations": [],
+            "ai_recommendations": {
+                "recommendations": [],
+                "strategy": {}
+            },
             "ai_suggested_title": "",
             "ai_suggested_meta": "",
             "ai_summary": f"AI recommendations unavailable: {str(e)}",

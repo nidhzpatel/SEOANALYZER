@@ -27,6 +27,19 @@ class AIRecommendation(BaseModel):
     impact: str = ""
 
 
+class AIStrategy(BaseModel):
+    """AI-generated SEO strategy."""
+    target_keywords: list[str] = []
+    content_suggestions: list[str] = []
+    backlink_strategy: list[str] = []
+
+
+class AIRecommendationsContainer(BaseModel):
+    """Container for AI recommendations and strategy."""
+    recommendations: list[AIRecommendation] = []
+    strategy: AIStrategy = AIStrategy()
+
+
 class AnalyzeResponse(BaseModel):
     """Full analysis report response."""
     id: int
@@ -43,7 +56,7 @@ class AnalyzeResponse(BaseModel):
     pagespeed_data: dict
     # AI-generated data
     ai_content_analysis: dict = {}
-    ai_recommendations: list[AIRecommendation] = []
+    ai_recommendations: AIRecommendationsContainer = AIRecommendationsContainer()
     ai_suggested_title: str = ""
     ai_suggested_meta: str = ""
     ai_summary: str = ""

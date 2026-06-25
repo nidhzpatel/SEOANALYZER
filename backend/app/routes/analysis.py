@@ -7,7 +7,15 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Report
-from app.schemas import AnalyzeRequest, AnalyzeResponse, ReportSummary, SEOIssue, AIRecommendation
+from app.schemas import (
+    AnalyzeRequest,
+    AnalyzeResponse,
+    ReportSummary,
+    SEOIssue,
+    AIRecommendation,
+    AIStrategy,
+    AIRecommendationsContainer,
+)
 from app.graph.workflow import seo_workflow
 
 logger = logging.getLogger(__name__)
@@ -108,7 +116,25 @@ def get_report(report_id: int, db: Session = Depends(get_db)):
 def _report_to_response(report: Report) -> AnalyzeResponse:
     """Convert a Report model to an AnalyzeResponse."""
     issues_data = report.issues if isinstance(report.issues, list) else []
-    ai_recs_data = report.ai_recommendations if isinstance(report.ai_recommendations, list) else []
+
+    # ai_recommendations may be stored as the new {recommendations, strategy}
+    # object or as the legacy flat list. Normalise to the container shape.
+    raw_ai_recs = report.ai_recommendations
+    if isinstance(raw_ai_recs, dict):
+        recommendations_data = raw_ai_recs.get("recommendations", [])
+        strategy_data = raw_ai_recs.get("strategy", {})
+    else:
+        # Legacy flat-list format: treat as recommendations with no strategy.
+        recommendations_data = raw_ai_recs if isinstance(raw_ai_recs, list) else []
+        strategy_data = {}
+
+    strategy = AIStrategy(**strategy_data)
+    recommendations = [AIRecommendation(**rec) for rec in recommendations_data]
+    ai_recommendations = AIRecommendationsContainer(
+        recommendations=recommendations,
+        strategy=strategy,
+    )
+
     return AnalyzeResponse(
         id=report.id,
         url=report.url,
@@ -123,7 +149,7 @@ def _report_to_response(report: Report) -> AnalyzeResponse:
         seo_signals=report.seo_signals,
         pagespeed_data=report.pagespeed_data,
         ai_content_analysis=report.ai_content_analysis,
-        ai_recommendations=[AIRecommendation(**rec) for rec in ai_recs_data],
+        ai_recommendations=ai_recommendations,
         ai_suggested_title=report.ai_suggested_title or "",
         ai_suggested_meta=report.ai_suggested_meta or "",
         ai_summary=report.ai_summary or "",

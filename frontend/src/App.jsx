@@ -5,6 +5,11 @@ import ReportCard from './components/ReportCard'
 import IssueList from './components/IssueList'
 import ReportHistory from './components/ReportHistory'
 import AIRecommendations from './components/AIRecommendations'
+import TechnicalSEO from './components/TechnicalSEO'
+import KeywordDensity from './components/KeywordDensity'
+import AIStrategy from './components/AIStrategy'
+import SEOReportPDF from './components/SEOReportPDF'
+import { PDFDownloadLink } from '@react-pdf/renderer'
 import { analyzeUrl, fetchReports, fetchReport } from './api'
 import './App.css'
 
@@ -124,9 +129,21 @@ function App() {
 
             {/* Report Dashboard */}
             {report && !isLoading && (
-                <main className="report-dashboard animate-fade-in-up">
+                <main id="report-dashboard" className="report-dashboard animate-fade-in-up">
                     {/* Score Overview */}
                     <section className="score-section">
+                        <PDFDownloadLink
+                            document={<SEOReportPDF report={report} />}
+                            fileName={`SEO_Report_${new URL(report.url).hostname}.pdf`}
+                            className="download-btn"
+                            id="download-btn"
+                        >
+                            {({ loading }) =>
+                                loading
+                                    ? <><span className="btn-icon">⏳</span> Preparing PDF...</>
+                                    : <><span className="btn-icon">📥</span> Download Report</>
+                            }
+                        </PDFDownloadLink>
                         <div className="analyzed-url">
                             <span className="url-label">Results for</span>
                             <a href={report.url} target="_blank" rel="noopener noreferrer" className="url-link">
@@ -168,34 +185,12 @@ function App() {
                         />
                     </section>
 
-                    {/* PageSpeed Metrics */}
-                    {report.pagespeed_data && report.pagespeed_data.performance_score !== null && (
-                        <section className="metrics-section glass-card" style={{ animationDelay: '0.3s' }}>
-                            <h2>Core Web Vitals</h2>
-                            <div className="metrics-grid">
-                                {[
-                                    { label: 'FCP', key: 'fcp', desc: 'First Contentful Paint' },
-                                    { label: 'LCP', key: 'lcp', desc: 'Largest Contentful Paint' },
-                                    { label: 'TBT', key: 'tbt', desc: 'Total Blocking Time' },
-                                    { label: 'CLS', key: 'cls', desc: 'Cumulative Layout Shift' },
-                                    { label: 'SI', key: 'speed_index', desc: 'Speed Index' },
-                                    { label: 'TTI', key: 'tti', desc: 'Time to Interactive' },
-                                ].map((m) => {
-                                    const metric = report.pagespeed_data[m.key]
-                                    if (!metric) return null
-                                    return (
-                                        <div key={m.key} className="metric-card">
-                                            <span className="metric-label">{m.label}</span>
-                                            <span className="metric-value">{metric.displayValue || 'N/A'}</span>
-                                            <span className="metric-desc">{m.desc}</span>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        </section>
-                    )}
+                    {/* Advanced Analysis Sections */}
+                    <KeywordDensity report={report} />
+                    <TechnicalSEO report={report} />
 
-                    {/* AI Recommendations */}
+                    {/* AI Recommendations & Strategy */}
+                    <AIStrategy strategy={report.ai_recommendations && !Array.isArray(report.ai_recommendations) ? report.ai_recommendations.strategy : null} />
                     <AIRecommendations report={report} />
 
                     {/* Issues */}

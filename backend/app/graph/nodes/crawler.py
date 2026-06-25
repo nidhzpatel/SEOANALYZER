@@ -2,6 +2,9 @@
 
 import time
 import logging
+import json
+from collections import Counter
+import re
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -116,6 +119,36 @@ def crawl_website(state: SEOState) -> dict:
         # Structured data (JSON-LD)
         json_ld_scripts = soup.find_all("script", type="application/ld+json")
         has_structured_data = len(json_ld_scripts) > 0
+        schema_types = []
+        for script in json_ld_scripts:
+            try:
+                data = json.loads(script.string if script.string else "{}")
+                if isinstance(data, dict):
+                    if "@type" in data:
+                        schema_types.append(data["@type"])
+                elif isinstance(data, list):
+                    for item in data:
+                        if isinstance(item, dict) and "@type" in item:
+                            schema_types.append(item["@type"])
+            except json.JSONDecodeError:
+                pass
+        schema_types = list(set(schema_types))
+
+        # Check for Common Technical Files
+        robots_txt_url = urljoin(base_domain, "/robots.txt")
+        sitemap_xml_url = urljoin(base_domain, "/sitemap.xml")
+        
+        has_robots_txt = _check_url_exists(robots_txt_url)
+        has_sitemap_xml = _check_url_exists(sitemap_xml_url)
+
+        # Keyword density (basic)
+        body_text = soup.get_text(separator=" ", strip=True).lower()
+        words = re.findall(r'\b[a-z]{3,}\b', body_text)
+        stop_words = {"the", "and", "for", "with", "that", "this", "from", "are", "you", "not", "have", "can", "has", "but", "was", "will", "all", "your", "they", "our", "about", "more", "out", "new", "their", "which", "what", "how", "when", "where", "who", "why"}
+        filtered_words = [w for w in words if w not in stop_words]
+        word_counts = Counter(filtered_words)
+        total_filtered = len(filtered_words)
+        top_keywords = [{"word": k, "count": v, "density": round((v/total_filtered)*100, 2) if total_filtered > 0 else 0.0} for k, v in word_counts.most_common(20)]
 
         # Favicon
         favicon = soup.find("link", rel=lambda x: x and "icon" in (x if isinstance(x, str) else " ".join(x)))
@@ -143,8 +176,12 @@ def crawl_website(state: SEOState) -> dict:
             "internal_links_data": internal_links[:50],  # Cap for storage
             "external_links_data": external_links[:50],
             "has_structured_data": has_structured_data,
+            "schema_types": schema_types,
+            "has_robots_txt": has_robots_txt,
+            "has_sitemap_xml": has_sitemap_xml,
+            "keyword_density": top_keywords,
             "has_favicon": has_favicon,
-            "word_count": len(soup.get_text().split()),
+            "word_count": len(words),
             "html_size_kb": round(len(html_content) / 1024, 2),
         }
 
@@ -173,3 +210,12 @@ def _get_meta(soup: BeautifulSoup, name: str) -> str | None:
     if not tag:
         tag = soup.find("meta", attrs={"property": name})
     return tag.get("content", "").strip() if tag else None
+
+def _check_url_exists(url: str) -> bool:
+    """Helper to do a fast HEAD request to check if a file exists (robots.txt, sitemap.xml)."""
+    try:
+        resp = requests.head(url, timeout=3, allow_redirects=True, headers={"User-Agent": settings.CRAWLER_USER_AGENT})
+        return resp.status_code < 400
+    except Exception:
+        return False
+

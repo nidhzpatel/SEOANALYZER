@@ -2,6 +2,7 @@
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from typing import Optional
 
 from langchain_ollama import ChatOllama
@@ -23,26 +24,38 @@ def get_llm() -> ChatOllama:
             model=settings.OLLAMA_MODEL,
             base_url=settings.OLLAMA_BASE_URL,
             temperature=0.3,
-            num_predict=2048,
+            num_predict=1024,
+            client_kwargs={"timeout": settings.OLLAMA_TIMEOUT},
         )
         logger.info(f"Initialized Ollama LLM: model={settings.OLLAMA_MODEL}, base_url={settings.OLLAMA_BASE_URL}")
     return _llm
+
+
+def _invoke_sync(system_prompt: str, user_prompt: str) -> str:
+    """Synchronous LLM call."""
+    llm = get_llm()
+    messages = [
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=user_prompt),
+    ]
+    response = llm.invoke(messages)
+    return response.content
 
 
 def invoke_llm(system_prompt: str, user_prompt: str) -> str:
     """Invoke the LLM with a system and user prompt.
 
     Returns the text content of the LLM response.
-    Falls back gracefully if Ollama is unavailable.
+    Enforces a hard timeout so slow Ollama responses don't hang the workflow.
+    Falls back gracefully if Ollama is unavailable or times out.
     """
     try:
-        llm = get_llm()
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ]
-        response = llm.invoke(messages)
-        return response.content
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_invoke_sync, system_prompt, user_prompt)
+            return future.result(timeout=settings.OLLAMA_TIMEOUT)
+    except FutureTimeoutError:
+        logger.warning(f"LLM call timed out after {settings.OLLAMA_TIMEOUT}s")
+        raise RuntimeError(f"Ollama LLM call timed out after {settings.OLLAMA_TIMEOUT}s")
     except Exception as e:
         logger.error(f"LLM invocation failed: {e}")
         raise

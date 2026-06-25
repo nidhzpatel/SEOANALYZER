@@ -1,11 +1,14 @@
 """AI Content Analyzer node — uses Ollama LLM to evaluate page content quality."""
 
 import logging
+import os
 
 from app.graph.state import SEOState
 from app.llm import invoke_llm_json
 
 logger = logging.getLogger(__name__)
+
+SKIP_AI = os.getenv("SKIP_AI", "false").lower() == "true"
 
 SYSTEM_PROMPT = """You are an expert SEO content analyst. Evaluate the given webpage content and provide a structured analysis.
 
@@ -19,6 +22,10 @@ You MUST respond with valid JSON only, no other text. Use this exact format:
     "overall_content_score": <1-100 integer>,
     "strengths": ["strength 1", "strength 2"],
     "weaknesses": ["weakness 1", "weakness 2"],
+    "search_intent": "Informational|Navigational|Transactional|Commercial",
+    "topic_coverage": <1-100 integer percentage>,
+    "missing_subtopics": ["subtopic 1", "subtopic 2"],
+    "target_keywords": ["kw1", "kw2"],
     "content_summary": "Brief summary of what the page is about and its content quality"
 }
 
@@ -44,6 +51,27 @@ def ai_content_analyze(state: SEOState) -> dict:
     html_content = state.get("html_content", "")
 
     logger.info(f"Running AI content analysis for: {url}")
+
+    if SKIP_AI:
+        logger.info("SKIP_AI is set; returning fallback content analysis")
+        return {
+            "ai_content_analysis": {
+                "content_summary": "AI analysis skipped for testing.",
+                "content_quality_score": 5,
+                "readability_score": 5,
+                "keyword_relevance": 5,
+                "topic_clarity": 5,
+                "content_depth": 5,
+                "overall_content_score": 50,
+                "strengths": [],
+                "weaknesses": [],
+                "search_intent": "Informational",
+                "topic_coverage": 50,
+                "missing_subtopics": [],
+                "target_keywords": [],
+            },
+            "ai_content_score": 50.0,
+        }
 
     # Build context for the LLM
     title = crawl_data.get("title", "No title")
